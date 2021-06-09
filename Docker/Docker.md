@@ -170,7 +170,321 @@ $  docker volume inspect juming-voluma
 
 ![image-20210605152421482](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210605152421482.png)
 
-### DockerFile
+### DockerFile--初识
 
-DockerFile就是用来构建docker镜像的构建文件
+通过dockerfile来挂载目录
+
+DockerFile就是用来构建docker镜像的构建文件，就是命令脚本！通过脚本生成镜像！
+
+```shell
+#练习
+#1.生成一个dockerfile文件
+```
+
+![image-20210605155830494](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210605155830494.png)
+
+```shell
+#dockfile文件中指令必须是大写，需要指定基础的内核
+#2.运行dockfile生成docker镜像 
+$  dockerfile-test-volume]# docker build -f dockfile1 -t ht/centos:1.0 .   #最后这个 . 很重要，必须要加上 -f dockerfile文件的路径 -t 镜像名：版本
+```
+
+![image-20210605160147092](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210605160147092.png)
+
+
+
+### 数据卷容器
+
+![image-20210605162010408](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210605162010408.png)
+
+```shell
+# 命令 --volumes-from  实现容器间的数据共享
+```
+
+
+
+![image-20210606131717182](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210606131717182.png)
+
+相当于子容器继承了父容器，父容器称为数据卷容器，通过
+
+![image-20210606133646001](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210606133646001.png)
+
+![image-20210607154845402](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210607154845402.png)
+
+## DockerFile
+
+### DockFile的 构建过程
+
+![image-20210607155556996](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210607155556996.png)
+
+### DockerFile指令
+
+![image-20210607160040190](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210607160040190.png)
+
+```shell
+FROM  			# 基础镜像，一切从这里开始构建
+MAINTAINER		# 镜像是谁写的， 格式：姓名<邮箱>
+RUN				#镜像构建的时候需要运行的命令
+ADD				#添加环境，比如tomcat、mysql
+WORKDIR			#指定镜像工作目录
+VOLUME
+EXPOSE			#暴露端口配置 和-p一致			
+CMD				#指定容器启动的时候要运行的命令，只有最后一个会生效，可被替代
+ENTRYPOINT		#指定容器启动的时候要运行的命令，可以追加命令
+ONBUILD			#当构建一个被继承的DockerFile 这时候就会运行 OBUILD 的指令，就是一个触发指令
+COPY			#与ADD相似，将我们的文件拷贝到镜像当中
+ENV				#构建的时候设置环境变量
+```
+
+### 实战测试
+
+![image-20210607161847299](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210607161847299.png)
+
+>创建自己的centos
+
+```shell
+#1.编写一个自己的dokcfile文件
+[root@huangtao dockerfile]# vim mydockerfile-centos
+[root@huangtao dockerfile]# cat mydockerfile-centos 
+FROM centos
+MAINTAINER huangtao<212314121@qq.com>
+
+ENV MYPATH /usr/local
+WORKDIR $MYPATH
+
+RUN yum -y install vim
+RUN yum -y install net-tools
+
+EXPOSE 80
+
+CMD echo $MYPATH
+CMD echo "------end-----"
+CMD /bin/bash
+#2.构建一个镜像
+#命令 docker build -f dockfile文件路径 -t 镜像名:[tag] .
+
+Successfully built c43a4de0c5d9
+Successfully tagged mycentos:0.1
+
+#3.测试运行
+```
+
+![image-20210607164308103](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210607164308103.png)
+
+```shell
+# 可以通过docker history 镜像名 查看镜像是如何一步一步的做出来的
+```
+
+![image-20210607164738789](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210607164738789.png)
+
+>#### 制作一个tomcat镜像
+
+1.准备镜像文件 tomcat压缩包，jdk压缩包！
+
+![image-20210608161015801](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210608161015801.png)
+
+2.编写dockerfile文件，官方命名`Dockerfile`,可以直接使用build构建镜像，就不需要`-f`来指定dockfile文件
+
+```shell
+FROM centos
+MAINTAINER huangtao<1231231@qq.com>
+
+COPY readme.txt /usr/local/readme.txt
+
+ADD jdk-8u11-linux-x64.tar.gz /usr/local/
+ADD apache-tomcat-9.0.22.tar.gz /usr/local/
+
+RUN yum -f install vim
+
+ENV MYPATH /usr/local/
+WORKDIR $MYPATH
+
+ENV JAVA_HOME /usr/local/jdk1.8.0_11
+ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.22
+ENV CATALINA_BASH /usr/local/apache-tomcat-9.0.22
+ENV PATH $PATH:$JAVA_HOME/bin:$CATALINA_HOME:/lib:$CATALINA_HOME:/bin
+
+EXPOSE 8080
+
+CMD /usr/local/apache-tomcat-9.0.22/bin/startup.sh && tail -F /usr/local/apache-tomcat-9.0.22/bin/logs/catalina.out
+```
+
+3.构建镜像文件
+
+```shell
+docker build -t diytomcat .
+```
+
+4.运行容器
+
+```shell
+docker run -d -p 9090:8080 -v /home/huangtao/build/tomcat/test/:/usr/local/apache-tomcat-9.0.22/webapps/test -v /home/huangtao/build/tomcat/tomcatlogs/:/usr/local/apache-tomcat-9.0.22/logs --name mytomcat diytomcat
+```
+
+**容器运行成功后，可能会出现无法访问的问题，在本地curl访问报错curl: (56) Recv failure: Connection reset by peer，这个时候先进入容器查看tomcat的日志信息，出现下图的错误信息。这个时候查看自己编写的dockerfile文件里面的环境变量的配置有没有问题**。
+
+![image-20210609113515654](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609113515654.png)
+
+5 发布项目
+
+```shell
+#web.xml文件
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="http://java.sun.com/xml/ns/javaee"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+                               http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+           version="2.5">
+
+</web-app>
+#index.jsp文件
+<html>
+<head><title>Hello World</title></head>
+<body>
+Hello World!<br/>
+<%
+System.out.println("-----my test web logs------");
+%>
+</body>
+</html>
+```
+
+![image-20210609114757235](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609114757235.png)
+
+### 发布镜像到DockerHub
+
+```shell
+#命令 首先需要登录上dockerhub官网
+$  docker login --help 
+$  docker login -u 用户名 -p 密码  #也可以不带参数 -p 
+```
+
+
+
+![image-20210609141234828](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609141234828.png)
+
+![image-20210609141456585](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609141456585.png)
+
+```shell
+# login succeeded 表示登录成功
+#发布到dockerhub上
+$  docker push dockerhub账号用户名/镜像名:版本号 #发布时尽量加上自己的版本号
+```
+
+![image-20210609151218627](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609151218627.png)
+
+### 发布镜像到阿里云容器服务
+
+1.登录阿里云
+
+2.找到容器镜像服务
+
+3.创建一个命名空间
+
+4.创建一个镜像仓库
+
+5.根据阿里云提供的步骤上传镜像至镜像仓库
+
+![image-20210609152321574](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609152321574.png)
+
+## Docker完整流程
+
+![image-20210609153514796](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609153514796.png)
+
+### 常用命令
+
+![image-20210609153818909](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609153818909.png)
+
+
+
+## Docker网络
+
+### 理解docker网络
+
+```shell
+#查看本机网卡
+$  ip addr
+```
+
+![image-20210609154407625](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609154407625.png)
+
+#### docker容器之间的网络互通
+
+```shell
+#以tomcat为例
+$  docker run -d -P --name tomcat01  tomcat
+
+#查看tomcat01 这个容器的ip地址
+$  docker exec -it tomcat01 ip addr  #后面还可以接不同的指令
+```
+
+![image-20210609155240057](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609155240057.png)
+
+```shell
+#linux下ping通docker容器是可以ping通的
+```
+
+![image-20210609155600965](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609155600965.png)
+
+>原理
+
+![image-20210609160152648](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609160152648.png)
+
+![image-20210609160214003](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609160214003.png)
+
+跟容器内部的ip很相似
+
+![image-20210609160535417](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609160535417.png)
+
+2.容器和容器之间是可以相互ping通的
+
+![image-20210609160949141](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609160949141.png)
+
+![image-20210609161448371](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609161448371.png)
+
+>网络原理图
+
+![image-20210609161733993](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609161733993.png)
+
+![image-20210609162049805](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609162049805.png)
+
+![image-20210609162603222](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609162603222.png)
+
+### --Link
+
+![image-20210609163726893](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609163726893.png)
+
+```shell
+[root@huangtao ~]# docker run -d -P --name tomcat03 --link 需要link的容器ID tomcat
+```
+
+![image-20210609165144638](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609165144638.png)
+
+```shell
+#tomcat03 link 上 tomcat02 之后，tomcat03能通过容器ping通tomcat02 ，反之却不行，tomcat02需要配后才能通过容器名ping通
+#link后，tomcat03的/etc/hosts配置如下：
+[root@huangtao ~]# docker exec -it tomcat03 cat /etc/hosts
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+ff00::0	ip6-mcastprefix
+ff02::1	ip6-allnodes
+ff02::2	ip6-allrouters
+172.17.0.3	9f70c34731fb 9f70c34731fb tomcat02
+172.17.0.4	0dfc7d09913a
+#未link，tomcat02的/etc/hosts配置如下：
+[root@huangtao ~]# docker exec -it tomcat02 cat /etc/hosts
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+ff00::0	ip6-mcastprefix
+ff02::1	ip6-allnodes
+ff02::2	ip6-allrouters
+172.17.0.3	9f70c34731fb
+```
+
+![image-20210609164651227](C:\Users\huang\AppData\Roaming\Typora\typora-user-images\image-20210609164651227.png)
+
+### 自定义网络
 
